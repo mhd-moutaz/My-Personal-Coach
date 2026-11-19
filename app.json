@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "My Personal Coach",
+    "slug": "my-personal-coach",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#0D0D12",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mypersonalcoach.app"
+    },
+    "android": {
+      "package": "com.mypersonalcoach.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0D0D12"
+      }
+    },
+    "plugins": ["expo-font"],
+    "extra": {
+      "supportsRTL": true
+    }
+  }
+}

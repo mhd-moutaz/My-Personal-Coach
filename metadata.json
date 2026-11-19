@@ -1,0 +1,6 @@
+{
+  "name": "My Personal Coach",
+  "description": "Smart offline fitness and nutrition coach built with Expo and React Native, featuring Arabic RTL and English support, dark/light themes, and deterministic rule-based workout and meal planning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
