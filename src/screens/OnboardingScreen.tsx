@@ -1235,6 +1235,32 @@ export function OnboardingScreen() {
               </View>
             )}
 
+            {previewPlan.plan.safetyNotices.minorMaintenanceApplied && (
+              <View
+                style={[
+                  styles.noticeBox,
+                  {
+                    backgroundColor: palette.warningSoft,
+                    borderColor: palette.warning,
+                    flexDirection: isRTL ? 'row-reverse' : 'row',
+                  },
+                ]}
+              >
+                <AlertTriangle size={20} color={palette.warning} />
+                <Text
+                  style={[
+                    styles.noticeText,
+                    {
+                      color: palette.text,
+                      textAlign: isRTL ? 'right' : 'left',
+                    },
+                  ]}
+                >
+                  {t('minorMaintenanceNote')}
+                </Text>
+              </View>
+            )}
+
             {previewPlan.plan.safetyNotices.targetAdjusted && (
               <View
                 style={[

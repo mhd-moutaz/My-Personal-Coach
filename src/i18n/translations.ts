@@ -88,6 +88,8 @@ export const TRANSLATIONS = {
     startJourneyBtn: 'ابدأ رحلتك الآن',
     under18Note:
       'ملاحظة أمان: لأن عمرك أقل من ١٨ عاماً، هذه الخطة إرشادية عامة ويُنصح باستشارة أحد الوالدين أو الطبيب قبل البدء.',
+    minorMaintenanceNote:
+      'لأن عمرك أقل من ١٨ عاماً، ضبطنا سعراتك على مستوى الصيانة بدون عجز، لدعم النمو الصحي. استشر طبيباً قبل أي خسارة وزن.',
     targetAdjustedNote:
       'تم تعديل الوزن المستهدف برفق إلى {weight} ليكون ضمن النطاق الصحي والواقعي لهدفك.',
     calorieFloorNote:
@@ -255,6 +257,8 @@ export const TRANSLATIONS = {
     startJourneyBtn: 'Start your journey',
     under18Note:
       'Safety note: Since you are under 18, this plan is general guidance—please consult a parent or doctor before starting.',
+    minorMaintenanceNote:
+      'Since you are under 18, your calories are set to maintenance (no deficit) to support healthy growth. Please consult a doctor before trying to lose weight.',
     targetAdjustedNote:
       'Your target weight was gently adjusted to {weight} so your plan stays safe and realistic.',
     calorieFloorNote:

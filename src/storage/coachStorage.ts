@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppSettings, DailyLog, GeneratedPlan, UserProfile } from '../types/coach';
+import { AppSettings, DailyLog, GeneratedPlan, PLAN_VERSION, UserProfile } from '../types/coach';
+import { generatePersonalPlan } from '../utils/fitness';
 import { getTodayDateKey } from '../utils/units';
 
 const KEYS = {
@@ -76,7 +77,14 @@ export async function loadAppState(): Promise<{
       ? JSON.parse(profileRaw)
       : null;
 
-    const plan: GeneratedPlan | null = planRaw ? JSON.parse(planRaw) : null;
+    let plan: GeneratedPlan | null = planRaw ? JSON.parse(planRaw) : null;
+
+    if (plan && plan.planVersion !== PLAN_VERSION && profile) {
+      // revisit this if we ever store user customizations inside the plan
+      const regenerated = generatePersonalPlan(profile);
+      plan = regenerated.plan;
+      await safeSetItem(KEYS.PLAN, JSON.stringify(plan));
+    }
 
     const todayKey = getTodayDateKey();
     let dailyLog = createEmptyDailyLog(todayKey);

@@ -188,6 +188,14 @@ export const EXERCISES: Exercise[] = [
     place: 'gym',
     level: 'advanced',
   },
+  {
+    id: 'gym_legs_calf_raise',
+    nameAr: 'رفع السمانة على الجهاز',
+    nameEn: 'Machine Calf Raise',
+    muscle: 'legs',
+    place: 'gym',
+    level: 'beginner',
+  },
 
   // ==================== GYM: ARMS & CORE ====================
   {
@@ -221,6 +229,30 @@ export const EXERCISES: Exercise[] = [
     muscle: 'core',
     place: 'gym',
     level: 'intermediate',
+  },
+  {
+    id: 'gym_core_plank',
+    nameAr: 'تمرين البلانك',
+    nameEn: 'Forearm Plank',
+    muscle: 'core',
+    place: 'gym',
+    level: 'beginner',
+  },
+  {
+    id: 'gym_core_dead_bug',
+    nameAr: 'تمرين ثبات البطن (ديد باغ)',
+    nameEn: 'Dead Bug Core Hold',
+    muscle: 'core',
+    place: 'gym',
+    level: 'beginner',
+  },
+  {
+    id: 'gym_core_ab_machine',
+    nameAr: 'طحن البطن على الجهاز',
+    nameEn: 'Machine Ab Crunch',
+    muscle: 'core',
+    place: 'gym',
+    level: 'beginner',
   },
 
   // ==================== HOME: CHEST ====================
@@ -366,6 +398,22 @@ export const EXERCISES: Exercise[] = [
     place: 'home',
     level: 'advanced',
   },
+  {
+    id: 'home_legs_calf_raise',
+    nameAr: 'رفع السمانة بوزن الجسم',
+    nameEn: 'Bodyweight Calf Raise',
+    muscle: 'legs',
+    place: 'home',
+    level: 'beginner',
+  },
+  {
+    id: 'home_legs_wall_sit',
+    nameAr: 'جلسة الحائط',
+    nameEn: 'Wall Sit',
+    muscle: 'legs',
+    place: 'home',
+    level: 'beginner',
+  },
 
   // ==================== HOME: ARMS & CORE ====================
   {
@@ -406,6 +454,22 @@ export const EXERCISES: Exercise[] = [
     nameEn: 'Dead Bug Core Hold',
     muscle: 'core',
     place: 'home',
-    level: 'intermediate',
+    level: 'beginner',
+  },
+  {
+    id: 'home_core_bird_dog',
+    nameAr: 'تمرين بيرد دوغ',
+    nameEn: 'Bird Dog',
+    muscle: 'core',
+    place: 'home',
+    level: 'beginner',
   },
 ];
+
+const EXERCISE_BY_ID = new Map<string, Exercise>(
+  EXERCISES.map((ex) => [ex.id, ex])
+);
+
+export function getExerciseById(id: string): Exercise | undefined {
+  return EXERCISE_BY_ID.get(id);
+}

@@ -56,8 +56,10 @@ export type SplitType =
   | 'legs'
   | 'rest';
 
+export const PLAN_VERSION = 2;
+
 export interface PlannedExercise {
-  exercise: Exercise;
+  exerciseId: string;
   sets: number;
   reps: string;
   restSeconds: number;
@@ -125,6 +127,7 @@ export interface UserProfile {
 
 export interface SafetyNotices {
   isUnder18: boolean;
+  minorMaintenanceApplied: boolean;
   targetAdjusted: boolean;
   originalTargetWeightKg: number;
   adjustedTargetWeightKg: number;
@@ -134,6 +137,7 @@ export interface SafetyNotices {
 }
 
 export interface GeneratedPlan {
+  planVersion: number;
   bmr: number;
   tdee: number;
   activityMultiplier: number;

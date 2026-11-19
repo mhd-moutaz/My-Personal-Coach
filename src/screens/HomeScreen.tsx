@@ -22,6 +22,7 @@ import { Button } from '../components/Button';
 import { CalorieRing } from '../components/CalorieRing';
 import { Card } from '../components/Card';
 import { useCoach } from '../context/CoachContext';
+import { getExerciseById } from '../data/exercises';
 import { FONTS, RADIUS } from '../theme/tokens';
 import { MealSlot } from '../types/coach';
 
@@ -368,38 +369,42 @@ export function HomeScreen() {
             </Text>
           ) : (
             <View style={styles.workoutPreviewList}>
-              {todaysWorkout.exercises.slice(0, 3).map((item) => (
-                <View
-                  key={item.exercise.id}
-                  style={[
-                    styles.exerciseRow,
-                    {
-                      borderBottomColor: palette.border,
-                      flexDirection: isRTL ? 'row-reverse' : 'row',
-                    },
-                  ]}
-                >
-                  <Text
-                    numberOfLines={1}
+              {todaysWorkout.exercises.slice(0, 3).map((item) => {
+                const exercise = getExerciseById(item.exerciseId);
+                if (!exercise) return null;
+                return (
+                  <View
+                    key={item.exerciseId}
                     style={[
-                      styles.exerciseName,
+                      styles.exerciseRow,
                       {
-                        color: palette.text,
-                        textAlign: isRTL ? 'right' : 'left',
+                        borderBottomColor: palette.border,
+                        flexDirection: isRTL ? 'row-reverse' : 'row',
                       },
                     ]}
                   >
-                    {settings.language === 'ar'
-                      ? item.exercise.nameAr
-                      : item.exercise.nameEn}
-                  </Text>
-                  <Text
-                    style={[styles.exerciseRx, { color: palette.textMuted }]}
-                  >
-                    {`${item.sets} × ${item.reps}`}
-                  </Text>
-                </View>
-              ))}
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.exerciseName,
+                        {
+                          color: palette.text,
+                          textAlign: isRTL ? 'right' : 'left',
+                        },
+                      ]}
+                    >
+                      {settings.language === 'ar'
+                        ? exercise.nameAr
+                        : exercise.nameEn}
+                    </Text>
+                    <Text
+                      style={[styles.exerciseRx, { color: palette.textMuted }]}
+                    >
+                      {`${item.sets} × ${item.reps}`}
+                    </Text>
+                  </View>
+                );
+              })}
 
               {todaysWorkout.cardioFinisherEn && (
                 <Text

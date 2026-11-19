@@ -9,6 +9,7 @@ import {
   Goal,
   MacroTargets,
   MuscleGroup,
+  PLAN_VERSION,
   PlannedExercise,
   SafetyNotices,
   SplitType,
@@ -143,12 +144,23 @@ export function calculateSafeCalories(
   gender: Gender,
   weightKg: number,
   goal: Goal,
-  level: ExperienceLevel
+  level: ExperienceLevel,
+  age: number
 ): {
   targetCalories: number;
   calorieFloorApplied: boolean;
   deficitCapped: boolean;
+  minorMaintenanceApplied: boolean;
 } {
+  if (age < 18 && goal === 'fat_loss') {
+    return {
+      targetCalories: tdee,
+      calorieFloorApplied: false,
+      deficitCapped: false,
+      minorMaintenanceApplied: true,
+    };
+  }
+
   const minFloor = gender === 'male' ? 1500 : 1200;
   let rawTarget = tdee;
   let deficitCapped = false;
@@ -162,7 +174,11 @@ export function calculateSafeCalories(
     rawTarget = tdee - appliedDeficit;
   } else if (goal === 'muscle_gain') {
     const moderateSurplus =
-      level === 'beginner' || gender === 'female' ? 250 : 300;
+      age < 18
+        ? 200
+        : level === 'beginner' || gender === 'female'
+        ? 250
+        : 300;
     rawTarget = tdee + moderateSurplus;
   }
 
@@ -171,6 +187,7 @@ export function calculateSafeCalories(
     targetCalories,
     calorieFloorApplied: rawTarget < minFloor,
     deficitCapped,
+    minorMaintenanceApplied: false,
   };
 }
 
@@ -344,41 +361,71 @@ function selectExercisesForDay(
     (ex) => ex.place === place && allowedLevels.includes(ex.level)
   );
   const muscles = getMusclesForSplit(split);
-  const targetCount = level === 'beginner' ? 4 : level === 'intermediate' ? 5 : 6;
+  const targetCount =
+    split === 'full_body'
+      ? level === 'beginner'
+        ? 5
+        : 6
+      : level === 'beginner'
+      ? 4
+      : level === 'intermediate'
+      ? 5
+      : 6;
 
   const selected: Exercise[] = [];
+  const selectedIds = new Set<string>();
 
-  // First pass: pick one movement per target muscle group, rotating by sessionIndex
-  for (const muscle of muscles) {
+  const pickRotating = (candidates: Exercise[], offset: number): Exercise | undefined => {
+    if (candidates.length === 0) return undefined;
+    return candidates[(sessionIndex + offset) % candidates.length];
+  };
+
+  // Pass 1: pick one movement per target muscle group, rotating by sessionIndex for all levels
+  for (let i = 0; i < muscles.length; i += 1) {
     if (selected.length >= targetCount) break;
+    const muscle = muscles[i];
     const candidates = pool.filter(
-      (ex) => ex.muscle === muscle && !selected.some((s) => s.id === ex.id)
+      (ex) => ex.muscle === muscle && !selectedIds.has(ex.id)
     );
-    if (candidates.length > 0) {
-      // For beginners keep simplest first; otherwise rotate cleanly across sessions
-      const pickIdx =
-        level === 'beginner' ? 0 : sessionIndex % candidates.length;
-      selected.push(candidates[pickIdx]);
+    const picked = pickRotating(candidates, 0);
+    if (picked) {
+      selected.push(picked);
+      selectedIds.add(picked.id);
     }
   }
 
-  // Second pass: fill remaining volume slots from target muscles
-  let safetyCounter = 0;
-  while (selected.length < targetCount && safetyCounter < 20) {
-    const muscle = muscles[safetyCounter % muscles.length];
-    const extra = pool.find(
-      (ex) => ex.muscle === muscle && !selected.some((s) => s.id === ex.id)
+  // Pass 2: fill remaining slots from target muscles, rotating by sessionIndex
+  let pass2Attempts = 0;
+  let muscleCursor = sessionIndex;
+  while (selected.length < targetCount && pass2Attempts < muscles.length * 4) {
+    const muscle = muscles[muscleCursor % muscles.length];
+    const candidates = pool.filter(
+      (ex) => ex.muscle === muscle && !selectedIds.has(ex.id)
     );
-    if (extra) {
-      selected.push(extra);
+    const picked = pickRotating(candidates, pass2Attempts);
+    if (picked) {
+      selected.push(picked);
+      selectedIds.add(picked.id);
     }
-    safetyCounter += 1;
+    muscleCursor += 1;
+    pass2Attempts += 1;
+  }
+
+  // Final fallback pass: fill from any muscle in the allowed-level pool not already selected
+  let fallbackOffset = 0;
+  while (selected.length < targetCount) {
+    const remaining = pool.filter((ex) => !selectedIds.has(ex.id));
+    const picked = pickRotating(remaining, fallbackOffset);
+    if (!picked) break;
+    selected.push(picked);
+    selectedIds.add(picked.id);
+    fallbackOffset += 1;
   }
 
   return selected.map((exercise, idx) => {
     const rx = buildPrescription(goal, level, idx);
     return {
-      exercise,
+      exerciseId: exercise.id,
       sets: rx.sets,
       reps: rx.reps,
       restSeconds: rx.restSeconds,
@@ -483,7 +530,8 @@ export function generatePersonalPlan(profile: UserProfile): {
     profile.gender,
     profile.weightKg,
     profile.goal,
-    profile.level
+    profile.level,
+    profile.age
   );
 
   const macros = calculateMacros(
@@ -509,6 +557,7 @@ export function generatePersonalPlan(profile: UserProfile): {
 
   const safetyNotices: SafetyNotices = {
     isUnder18: profile.age < 18,
+    minorMaintenanceApplied: calorieOutcome.minorMaintenanceApplied,
     targetAdjusted: targetEval.targetAdjusted,
     originalTargetWeightKg: profile.targetWeightKg,
     adjustedTargetWeightKg: targetEval.adjustedTargetWeightKg,
@@ -520,6 +569,7 @@ export function generatePersonalPlan(profile: UserProfile): {
   return {
     sanitizedProfile,
     plan: {
+      planVersion: PLAN_VERSION,
       bmr,
       tdee,
       activityMultiplier,

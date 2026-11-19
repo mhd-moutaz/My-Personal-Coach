@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { I18nManager } from 'react-native';
 import { TRANSLATIONS, TranslationKey, translate } from '../i18n/translations';
 import {
   clearAllCoachData,
@@ -65,12 +64,6 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
       const loaded = await loadAppState();
       if (!mounted) return;
 
-      const shouldRTL = loaded.settings.language === 'ar';
-      if (I18nManager.isRTL !== shouldRTL) {
-        I18nManager.allowRTL(true);
-        I18nManager.forceRTL(shouldRTL);
-      }
-
       setSettings(loaded.settings);
       setProfile(loaded.profile);
       setPlan(loaded.plan);
@@ -120,9 +113,6 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setLanguage = useCallback(async (language: Language) => {
-    const shouldRTL = language === 'ar';
-    I18nManager.allowRTL(true);
-    I18nManager.forceRTL(shouldRTL);
     const next: AppSettings = { ...settings, language };
     setSettings(next);
     await saveSettings(next);
@@ -210,6 +200,7 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const palette = useMemo(() => getPalette(settings.theme), [settings.theme]);
+  // Native RTL is disabled in index.ts; isRTL drives manual directional styles.
   const isRTL = settings.language === 'ar';
 
   const t = useCallback(
