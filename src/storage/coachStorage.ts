@@ -16,6 +16,35 @@ export const DEFAULT_SETTINGS: AppSettings = {
   onboardingCompleted: false,
 };
 
+// In-memory fallback prevents unhandled promise rejections if native storage is unavailable.
+const memoryFallback: Record<string, string> = {};
+
+async function safeGetItem(key: string): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(key);
+  } catch {
+    return memoryFallback[key] ?? null;
+  }
+}
+
+async function safeSetItem(key: string, value: string): Promise<void> {
+  memoryFallback[key] = value;
+  try {
+    await AsyncStorage.setItem(key, value);
+  } catch {
+    // Fallback already updated in memory
+  }
+}
+
+async function safeRemoveItem(key: string): Promise<void> {
+  delete memoryFallback[key];
+  try {
+    await AsyncStorage.removeItem(key);
+  } catch {
+    // Fallback already cleared in memory
+  }
+}
+
 export function createEmptyDailyLog(dateKey: string = getTodayDateKey()): DailyLog {
   return {
     dateKey,
@@ -33,10 +62,10 @@ export async function loadAppState(): Promise<{
 }> {
   try {
     const [settingsRaw, profileRaw, planRaw, logRaw] = await Promise.all([
-      AsyncStorage.getItem(KEYS.SETTINGS),
-      AsyncStorage.getItem(KEYS.PROFILE),
-      AsyncStorage.getItem(KEYS.PLAN),
-      AsyncStorage.getItem(KEYS.DAILY_LOG),
+      safeGetItem(KEYS.SETTINGS),
+      safeGetItem(KEYS.PROFILE),
+      safeGetItem(KEYS.PLAN),
+      safeGetItem(KEYS.DAILY_LOG),
     ]);
 
     const settings: AppSettings = settingsRaw
@@ -57,7 +86,7 @@ export async function loadAppState(): Promise<{
       if (parsedLog.dateKey === todayKey) {
         dailyLog = parsedLog;
       } else {
-        await AsyncStorage.setItem(KEYS.DAILY_LOG, JSON.stringify(dailyLog));
+        await safeSetItem(KEYS.DAILY_LOG, JSON.stringify(dailyLog));
       }
     }
 
@@ -73,7 +102,7 @@ export async function loadAppState(): Promise<{
 }
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
-  await AsyncStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
+  await safeSetItem(KEYS.SETTINGS, JSON.stringify(settings));
 }
 
 export async function saveProfileAndPlan(
@@ -81,20 +110,20 @@ export async function saveProfileAndPlan(
   plan: GeneratedPlan
 ): Promise<void> {
   await Promise.all([
-    AsyncStorage.setItem(KEYS.PROFILE, JSON.stringify(profile)),
-    AsyncStorage.setItem(KEYS.PLAN, JSON.stringify(plan)),
+    safeSetItem(KEYS.PROFILE, JSON.stringify(profile)),
+    safeSetItem(KEYS.PLAN, JSON.stringify(plan)),
   ]);
 }
 
 export async function saveDailyLog(log: DailyLog): Promise<void> {
-  await AsyncStorage.setItem(KEYS.DAILY_LOG, JSON.stringify(log));
+  await safeSetItem(KEYS.DAILY_LOG, JSON.stringify(log));
 }
 
 export async function clearAllCoachData(): Promise<void> {
   await Promise.all([
-    AsyncStorage.removeItem(KEYS.SETTINGS),
-    AsyncStorage.removeItem(KEYS.PROFILE),
-    AsyncStorage.removeItem(KEYS.PLAN),
-    AsyncStorage.removeItem(KEYS.DAILY_LOG),
+    safeRemoveItem(KEYS.SETTINGS),
+    safeRemoveItem(KEYS.PROFILE),
+    safeRemoveItem(KEYS.PLAN),
+    safeRemoveItem(KEYS.DAILY_LOG),
   ]);
 }
