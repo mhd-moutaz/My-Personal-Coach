@@ -16,9 +16,14 @@
         "backgroundColor": "#0D0D12"
       }
     },
-    "plugins": ["expo-font"],
+    "plugins": [
+      "expo-font"
+    ],
     "extra": {
-      "supportsRTL": true
+      "supportsRTL": true,
+      "eas": {
+        "projectId": "8d0c6d40-ebf5-428d-b6d8-b0ac5d35f143"
+      }
     }
   }
 }

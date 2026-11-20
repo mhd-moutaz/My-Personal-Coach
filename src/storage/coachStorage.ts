@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   AiWorkoutProgram,
   AppSettings,
@@ -6,24 +6,24 @@ import {
   GeneratedPlan,
   PLAN_VERSION,
   UserProfile,
-} from '../types/coach';
-import { generatePersonalPlan } from '../utils/fitness';
-import { getTodayDateKey } from '../utils/units';
+} from "../types/coach";
+import { generatePersonalPlan } from "../utils/fitness";
+import { getTodayDateKey } from "../utils/units";
 
 const KEYS = {
-  SETTINGS: '@mpc/settings',
-  PROFILE: '@mpc/profile',
-  PLAN: '@mpc/plan',
-  DAILY_LOG: '@mpc/daily_log',
-  AI_PROGRAM: '@mpc/ai_program',
+  SETTINGS: "@mpc/settings",
+  PROFILE: "@mpc/profile",
+  PLAN: "@mpc/plan",
+  DAILY_LOG: "@mpc/daily_log",
+  AI_PROGRAM: "@mpc/ai_program",
 } as const;
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  language: 'ar',
-  theme: 'dark',
-  unit: 'kg',
+  language: "ar",
+  theme: "dark",
+  unit: "kg",
   onboardingCompleted: false,
-  geminiModel: 'gemini-2.5-flash',
+  geminiModel: "gemini-3.5-flash-lite",
 };
 
 // In-memory fallback prevents unhandled promise rejections if native storage is unavailable.
@@ -55,7 +55,9 @@ async function safeRemoveItem(key: string): Promise<void> {
   }
 }
 
-export function createEmptyDailyLog(dateKey: string = getTodayDateKey()): DailyLog {
+export function createEmptyDailyLog(
+  dateKey: string = getTodayDateKey(),
+): DailyLog {
   return {
     dateKey,
     waterMl: 0,
@@ -72,7 +74,7 @@ export async function loadAiProgram(): Promise<AiWorkoutProgram | null> {
     if (
       !parsed ||
       parsed.version !== 1 ||
-      parsed.source !== 'ai' ||
+      parsed.source !== "ai" ||
       !Array.isArray(parsed.days) ||
       parsed.days.length !== 7
     ) {
@@ -156,7 +158,7 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
 
 export async function saveProfileAndPlan(
   profile: UserProfile,
-  plan: GeneratedPlan
+  plan: GeneratedPlan,
 ): Promise<void> {
   await Promise.all([
     safeSetItem(KEYS.PROFILE, JSON.stringify(profile)),

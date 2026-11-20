@@ -1,4 +1,4 @@
-import { AiGenerateFailureReason } from '../types/coach';
+import { AiGenerateFailureReason } from "../types/coach";
 
 export interface CallGeminiParams {
   apiKey: string;
@@ -28,9 +28,9 @@ export async function callGemini({
   userText,
   signal,
 }: CallGeminiParams): Promise<CallGeminiResult> {
-  const cleanModel = model.trim() || 'gemini-2.5-flash';
+  const cleanModel = model.trim() || "gemini-3.5-flash-lite";
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    cleanModel
+    cleanModel,
   )}:generateContent`;
 
   const controller = new AbortController();
@@ -40,17 +40,17 @@ export async function callGemini({
   if (signal) {
     if (signal.aborted) {
       clearTimeout(timeoutId);
-      return { ok: false, reason: 'network' };
+      return { ok: false, reason: "network" };
     }
-    signal.addEventListener('abort', onExternalAbort, { once: true });
+    signal.addEventListener("abort", onExternalAbort, { once: true });
   }
 
   try {
     const response = await fetch(endpoint, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': apiKey,
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
       },
       body: JSON.stringify({
         systemInstruction: {
@@ -58,12 +58,12 @@ export async function callGemini({
         },
         contents: [
           {
-            role: 'user',
+            role: "user",
             parts: [{ text: userText }],
           },
         ],
         generationConfig: {
-          responseMimeType: 'application/json',
+          responseMimeType: "application/json",
           temperature: 0.4,
         },
       }),
@@ -76,15 +76,15 @@ export async function callGemini({
         response.status === 401 ||
         response.status === 403
       ) {
-        return { ok: false, reason: 'auth' };
+        return { ok: false, reason: "auth" };
       }
       if (response.status === 404) {
-        return { ok: false, reason: 'model_not_found' };
+        return { ok: false, reason: "model_not_found" };
       }
       if (response.status === 429) {
-        return { ok: false, reason: 'quota' };
+        return { ok: false, reason: "quota" };
       }
-      return { ok: false, reason: 'network' };
+      return { ok: false, reason: "network" };
     }
 
     const json = (await response.json()) as {
@@ -96,22 +96,22 @@ export async function callGemini({
     };
 
     const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text || typeof text !== 'string') {
-      return { ok: false, reason: 'invalid_response' };
+    if (!text || typeof text !== "string") {
+      return { ok: false, reason: "invalid_response" };
     }
 
     try {
       const parsed: unknown = JSON.parse(stripCodeFences(text));
       return { ok: true, data: parsed };
     } catch {
-      return { ok: false, reason: 'invalid_response' };
+      return { ok: false, reason: "invalid_response" };
     }
   } catch {
-    return { ok: false, reason: 'network' };
+    return { ok: false, reason: "network" };
   } finally {
     clearTimeout(timeoutId);
     if (signal) {
-      signal.removeEventListener('abort', onExternalAbort);
+      signal.removeEventListener("abort", onExternalAbort);
     }
   }
 }
