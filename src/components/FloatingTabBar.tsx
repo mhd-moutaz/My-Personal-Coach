@@ -102,19 +102,7 @@ export function FloatingTabBar({ activeTab, onSelectTab }: FloatingTabBarProps) 
               accessibilityState={{ selected: isActive }}
               accessibilityLabel={item.label}
             >
-              <View
-                style={[
-                  styles.iconBadge,
-                  isActive && {
-                    backgroundColor:
-                      item.activeColor === palette.nutrition
-                        ? palette.nutritionSoft
-                        : item.activeColor === palette.water
-                        ? palette.waterSoft
-                        : palette.workoutSoft,
-                  },
-                ]}
-              >
+              <View style={styles.iconBadge}>
                 {item.renderIcon(color)}
               </View>
               <Text
