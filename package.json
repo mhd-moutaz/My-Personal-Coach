@@ -25,6 +25,7 @@
     "dotenv": "^17.2.3",
     "expo": "^58.0.26",
     "expo-font": "^58.0.12",
+    "expo-secure-store": "^58.0.3",
     "expo-status-bar": "^58.0.5",
     "express": "^4.21.2",
     "lucide-react": "^0.546.0",
