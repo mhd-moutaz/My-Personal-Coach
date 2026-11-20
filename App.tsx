@@ -14,6 +14,7 @@ import { ComingSoonScreen } from './src/screens/ComingSoonScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { WorkoutsScreen } from './src/screens/WorkoutsScreen';
 import { TabKey } from './src/types/coach';
 
 function AppShell() {
@@ -50,11 +51,14 @@ function AppShell() {
         <OnboardingScreen />
       ) : (
         <View style={styles.shell}>
-          {activeTab === 'home' && <HomeScreen />}
+          {activeTab === 'home' && (
+            <HomeScreen onOpenWorkouts={() => setActiveTab('workouts')} />
+          )}
+          {activeTab === 'workouts' && <WorkoutsScreen />}
           {activeTab === 'profile' && <ProfileScreen />}
-          {(activeTab === 'workouts' ||
-            activeTab === 'nutrition' ||
-            activeTab === 'progress') && <ComingSoonScreen tab={activeTab} />}
+          {(activeTab === 'nutrition' || activeTab === 'progress') && (
+            <ComingSoonScreen tab={activeTab} />
+          )}
 
           <FloatingTabBar
             activeTab={activeTab}

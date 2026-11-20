@@ -1,5 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppSettings, DailyLog, GeneratedPlan, PLAN_VERSION, UserProfile } from '../types/coach';
+import {
+  AiWorkoutProgram,
+  AppSettings,
+  DailyLog,
+  GeneratedPlan,
+  PLAN_VERSION,
+  UserProfile,
+} from '../types/coach';
 import { generatePersonalPlan } from '../utils/fitness';
 import { getTodayDateKey } from '../utils/units';
 
@@ -8,6 +15,7 @@ const KEYS = {
   PROFILE: '@mpc/profile',
   PLAN: '@mpc/plan',
   DAILY_LOG: '@mpc/daily_log',
+  AI_PROGRAM: '@mpc/ai_program',
 } as const;
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -15,6 +23,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   unit: 'kg',
   onboardingCompleted: false,
+  geminiModel: 'gemini-2.5-flash',
 };
 
 // In-memory fallback prevents unhandled promise rejections if native storage is unavailable.
@@ -55,19 +64,50 @@ export function createEmptyDailyLog(dateKey: string = getTodayDateKey()): DailyL
   };
 }
 
+export async function loadAiProgram(): Promise<AiWorkoutProgram | null> {
+  try {
+    const raw = await safeGetItem(KEYS.AI_PROGRAM);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AiWorkoutProgram>;
+    if (
+      !parsed ||
+      parsed.version !== 1 ||
+      parsed.source !== 'ai' ||
+      !Array.isArray(parsed.days) ||
+      parsed.days.length !== 7
+    ) {
+      return null;
+    }
+    return parsed as AiWorkoutProgram;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveAiProgram(program: AiWorkoutProgram): Promise<void> {
+  await safeSetItem(KEYS.AI_PROGRAM, JSON.stringify(program));
+}
+
+export async function clearAiProgram(): Promise<void> {
+  await safeRemoveItem(KEYS.AI_PROGRAM);
+}
+
 export async function loadAppState(): Promise<{
   settings: AppSettings;
   profile: UserProfile | null;
   plan: GeneratedPlan | null;
   dailyLog: DailyLog;
+  aiProgram: AiWorkoutProgram | null;
 }> {
   try {
-    const [settingsRaw, profileRaw, planRaw, logRaw] = await Promise.all([
-      safeGetItem(KEYS.SETTINGS),
-      safeGetItem(KEYS.PROFILE),
-      safeGetItem(KEYS.PLAN),
-      safeGetItem(KEYS.DAILY_LOG),
-    ]);
+    const [settingsRaw, profileRaw, planRaw, logRaw, aiProgram] =
+      await Promise.all([
+        safeGetItem(KEYS.SETTINGS),
+        safeGetItem(KEYS.PROFILE),
+        safeGetItem(KEYS.PLAN),
+        safeGetItem(KEYS.DAILY_LOG),
+        loadAiProgram(),
+      ]);
 
     const settings: AppSettings = settingsRaw
       ? { ...DEFAULT_SETTINGS, ...JSON.parse(settingsRaw) }
@@ -98,13 +138,14 @@ export async function loadAppState(): Promise<{
       }
     }
 
-    return { settings, profile, plan, dailyLog };
+    return { settings, profile, plan, dailyLog, aiProgram };
   } catch {
     return {
       settings: DEFAULT_SETTINGS,
       profile: null,
       plan: null,
       dailyLog: createEmptyDailyLog(),
+      aiProgram: null,
     };
   }
 }
@@ -133,5 +174,6 @@ export async function clearAllCoachData(): Promise<void> {
     safeRemoveItem(KEYS.PROFILE),
     safeRemoveItem(KEYS.PLAN),
     safeRemoveItem(KEYS.DAILY_LOG),
+    safeRemoveItem(KEYS.AI_PROGRAM),
   ]);
 }

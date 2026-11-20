@@ -1,16 +1,22 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { TRANSLATIONS, TranslationKey, translate } from '../i18n/translations';
+import { callGemini } from '../services/gemini';
 import {
+  clearAiProgram as clearStoredAiProgram,
   clearAllCoachData,
   createEmptyDailyLog,
   DEFAULT_SETTINGS,
   loadAppState,
+  saveAiProgram,
   saveDailyLog,
   saveProfileAndPlan,
   saveSettings,
 } from '../storage/coachStorage';
+import { deleteGeminiKey, getGeminiKey, setGeminiKey } from '../storage/secureKey';
 import { getPalette, ThemePalette } from '../theme/tokens';
 import {
+  AiGenerateResult,
+  AiWorkoutProgram,
   AppSettings,
   DailyLog,
   GeneratedPlan,
@@ -18,7 +24,14 @@ import {
   ThemeMode,
   UserProfile,
   WeightUnit,
+  WorkoutDayPlan,
 } from '../types/coach';
+import {
+  buildCatalogForAi,
+  buildPrompt,
+  getActiveDayIndices,
+  validateAiDays,
+} from '../utils/aiProgram';
 import { generatePersonalPlan } from '../utils/fitness';
 import { getTodayDateKey } from '../utils/units';
 
@@ -29,6 +42,9 @@ interface CoachContextValue {
   isRTL: boolean;
   profile: UserProfile | null;
   plan: GeneratedPlan | null;
+  aiProgram: AiWorkoutProgram | null;
+  activeSchedule: WorkoutDayPlan[];
+  hasGeminiKey: boolean;
   dailyLog: DailyLog;
   isReeditingOnboarding: boolean;
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
@@ -40,6 +56,11 @@ interface CoachContextValue {
   setThemeMode: (theme: ThemeMode) => Promise<void>;
   toggleTheme: () => Promise<void>;
   setWeightUnit: (unit: WeightUnit) => Promise<void>;
+  saveGeminiKey: (key: string) => Promise<void>;
+  removeGeminiKey: () => Promise<void>;
+  setGeminiModel: (model: string) => Promise<void>;
+  generateAiProgram: (userNotes: string) => Promise<AiGenerateResult>;
+  clearAiProgram: () => Promise<void>;
   addWater: (amountMl?: number) => Promise<void>;
   removeWater: (amountMl?: number) => Promise<void>;
   toggleMealCompleted: (mealId: string) => Promise<void>;
@@ -55,18 +76,25 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [plan, setPlan] = useState<GeneratedPlan | null>(null);
+  const [aiProgram, setAiProgram] = useState<AiWorkoutProgram | null>(null);
+  const [hasGeminiKey, setHasGeminiKey] = useState(false);
   const [dailyLog, setDailyLog] = useState<DailyLog>(() => createEmptyDailyLog());
   const [isReeditingOnboarding, setIsReeditingOnboarding] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const loaded = await loadAppState();
+      const [loaded, existingKey] = await Promise.all([
+        loadAppState(),
+        getGeminiKey(),
+      ]);
       if (!mounted) return;
 
       setSettings(loaded.settings);
       setProfile(loaded.profile);
       setPlan(loaded.plan);
+      setAiProgram(loaded.aiProgram);
+      setHasGeminiKey(Boolean(existingKey));
       setDailyLog(loaded.dailyLog);
       setIsReady(true);
     })();
@@ -93,14 +121,17 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
 
     setProfile(sanitizedProfile);
     setPlan(generatedPlan);
+    setAiProgram(null);
     setSettings(nextSettings);
     setDailyLog(freshLog);
     setIsReeditingOnboarding(false);
 
+    // Clear any saved AI program because profile settings (days/place/level) changed
     await Promise.all([
       saveProfileAndPlan(sanitizedProfile, generatedPlan),
       saveSettings(nextSettings),
       saveDailyLog(freshLog),
+      clearStoredAiProgram(),
     ]);
   }, [settings]);
 
@@ -134,6 +165,123 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
     setSettings(next);
     await saveSettings(next);
   }, [settings]);
+
+  const saveGeminiKeyAction = useCallback(async (key: string) => {
+    const cleaned = key.trim();
+    if (!cleaned) return;
+    await setGeminiKey(cleaned);
+    setHasGeminiKey(true);
+  }, []);
+
+  const removeGeminiKeyAction = useCallback(async () => {
+    await deleteGeminiKey();
+    setHasGeminiKey(false);
+  }, []);
+
+  const setGeminiModelAction = useCallback(async (model: string) => {
+    const cleaned = model.trim() || DEFAULT_SETTINGS.geminiModel;
+    const next: AppSettings = { ...settings, geminiModel: cleaned };
+    setSettings(next);
+    await saveSettings(next);
+  }, [settings]);
+
+  const clearAiProgramAction = useCallback(async () => {
+    await clearStoredAiProgram();
+    setAiProgram(null);
+  }, []);
+
+  const generateAiProgramAction = useCallback(
+    async (userNotes: string): Promise<AiGenerateResult> => {
+      try {
+        if (!profile || !plan) {
+          return { ok: false, reason: 'invalid_response' };
+        }
+
+        const apiKey = await getGeminiKey();
+        if (!apiKey) {
+          setHasGeminiKey(false);
+          return { ok: false, reason: 'no_key' };
+        }
+
+        const model =
+          settings.geminiModel.trim() || DEFAULT_SETTINGS.geminiModel;
+        const cleanNotes = userNotes.trim().slice(0, 300);
+        const activeDays = getActiveDayIndices(profile.trainingDays);
+        const catalog = buildCatalogForAi(profile.place, profile.level);
+        const { systemInstruction, userPayload } = buildPrompt(
+          profile,
+          cleanNotes,
+          activeDays,
+          catalog
+        );
+
+        const firstCall = await callGemini({
+          apiKey,
+          model,
+          systemInstruction,
+          userText: userPayload,
+        });
+
+        if (!firstCall.ok) {
+          return { ok: false, reason: firstCall.reason };
+        }
+
+        const firstValidation = validateAiDays(firstCall.data, {
+          activeDays,
+          place: profile.place,
+          level: profile.level,
+        });
+
+        let finalValidation = firstValidation;
+
+        if (!firstValidation.ok) {
+          const retryPayload = `${userPayload}\n\nYour previous JSON failed validation with these errors. Fix ALL of them and return ONLY valid JSON:\n- ${firstValidation.errors.join(
+            '\n- '
+          )}`;
+
+          const retryCall = await callGemini({
+            apiKey,
+            model,
+            systemInstruction,
+            userText: retryPayload,
+          });
+
+          if (!retryCall.ok) {
+            return { ok: false, reason: retryCall.reason };
+          }
+
+          finalValidation = validateAiDays(retryCall.data, {
+            activeDays,
+            place: profile.place,
+            level: profile.level,
+          });
+        }
+
+        if (!finalValidation.ok) {
+          return { ok: false, reason: 'invalid_response' };
+        }
+
+        const nextProgram: AiWorkoutProgram = {
+          version: 1,
+          source: 'ai',
+          createdAt: new Date().toISOString(),
+          model,
+          userNotes: cleanNotes,
+          ...(finalValidation.safetyNote
+            ? { safetyNote: finalValidation.safetyNote }
+            : {}),
+          days: finalValidation.days,
+        };
+
+        await saveAiProgram(nextProgram);
+        setAiProgram(nextProgram);
+        return { ok: true };
+      } catch {
+        return { ok: false, reason: 'network' };
+      }
+    },
+    [profile, plan, settings.geminiModel]
+  );
 
   const addWater = useCallback(async (amountMl: number = 250) => {
     const activeLog = ensureCurrentDayLog(dailyLog);
@@ -191,10 +339,12 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
   }, [dailyLog, ensureCurrentDayLog]);
 
   const resetAllData = useCallback(async () => {
-    await clearAllCoachData();
+    await Promise.all([clearAllCoachData(), deleteGeminiKey()]);
     setSettings(DEFAULT_SETTINGS);
     setProfile(null);
     setPlan(null);
+    setAiProgram(null);
+    setHasGeminiKey(false);
     setDailyLog(createEmptyDailyLog());
     setIsReeditingOnboarding(false);
   }, []);
@@ -202,6 +352,13 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
   const palette = useMemo(() => getPalette(settings.theme), [settings.theme]);
   // Native RTL is disabled in index.ts; isRTL drives manual directional styles.
   const isRTL = settings.language === 'ar';
+
+  const activeSchedule = useMemo<WorkoutDayPlan[]>(() => {
+    if (aiProgram?.days && aiProgram.days.length === 7) {
+      return aiProgram.days;
+    }
+    return plan?.weeklySchedule ?? [];
+  }, [aiProgram, plan]);
 
   const t = useCallback(
     (key: TranslationKey, params?: Record<string, string | number>) =>
@@ -219,6 +376,9 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
       isRTL,
       profile,
       plan,
+      aiProgram,
+      activeSchedule,
+      hasGeminiKey,
       dailyLog,
       isReeditingOnboarding,
       t,
@@ -230,6 +390,11 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
       setThemeMode,
       toggleTheme,
       setWeightUnit,
+      saveGeminiKey: saveGeminiKeyAction,
+      removeGeminiKey: removeGeminiKeyAction,
+      setGeminiModel: setGeminiModelAction,
+      generateAiProgram: generateAiProgramAction,
+      clearAiProgram: clearAiProgramAction,
       addWater,
       removeWater,
       toggleMealCompleted,
@@ -244,6 +409,9 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
       isRTL,
       profile,
       plan,
+      aiProgram,
+      activeSchedule,
+      hasGeminiKey,
       dailyLog,
       isReeditingOnboarding,
       t,
@@ -255,6 +423,11 @@ export function CoachProvider({ children }: { children: React.ReactNode }) {
       setThemeMode,
       toggleTheme,
       setWeightUnit,
+      saveGeminiKeyAction,
+      removeGeminiKeyAction,
+      setGeminiModelAction,
+      generateAiProgramAction,
+      clearAiProgramAction,
       addWater,
       removeWater,
       toggleMealCompleted,

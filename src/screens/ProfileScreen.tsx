@@ -1,19 +1,23 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  Eye,
+  EyeOff,
   Globe,
   Moon,
   RefreshCw,
   Scale,
   Sparkles,
   Sun,
+  Trash2,
 } from 'lucide-react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -28,13 +32,59 @@ export function ProfileScreen() {
     settings,
     profile,
     plan,
+    hasGeminiKey,
     t,
     setLanguage,
     setThemeMode,
     setWeightUnit,
+    saveGeminiKey,
+    removeGeminiKey,
+    setGeminiModel,
     reopenOnboarding,
   } = useCoach();
   const insets = useSafeAreaInsets();
+
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [modelInput, setModelInput] = useState(settings.geminiModel);
+  const [aiFeedback, setAiFeedback] = useState<string | null>(null);
+  const [isSavingAi, setIsSavingAi] = useState(false);
+
+  useEffect(() => {
+    setModelInput(settings.geminiModel);
+  }, [settings.geminiModel]);
+
+  const handleSaveAiSettings = async () => {
+    if (isSavingAi) return;
+    setIsSavingAi(true);
+    setAiFeedback(null);
+    try {
+      await setGeminiModel(modelInput);
+      const trimmedKey = apiKeyInput.trim();
+      if (trimmedKey) {
+        await saveGeminiKey(trimmedKey);
+        setApiKeyInput('');
+        setShowApiKey(false);
+        setAiFeedback(t('aiKeySavedMsg'));
+      }
+    } finally {
+      setIsSavingAi(false);
+    }
+  };
+
+  const handleDeleteKey = async () => {
+    if (isSavingAi) return;
+    setIsSavingAi(true);
+    setAiFeedback(null);
+    try {
+      await removeGeminiKey();
+      setApiKeyInput('');
+      setShowApiKey(false);
+      setAiFeedback(t('aiKeyDeletedMsg'));
+    } finally {
+      setIsSavingAi(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -335,31 +385,207 @@ export function ProfileScreen() {
         </View>
       </Card>
 
-      {/* Future Phase AI Teaser (No AI calls or keys stored in Phase 1) */}
-      <Card elevated>
+      {/* AI Settings */}
+      <Card style={styles.settingsCard}>
         <View
           style={[
-            styles.teaserHeader,
+            styles.aiHeaderRow,
             { flexDirection: isRTL ? 'row-reverse' : 'row' },
           ]}
         >
-          <Sparkles size={18} color={palette.textMuted} />
+          <View
+            style={[
+              styles.settingLabelRow,
+              { flexDirection: isRTL ? 'row-reverse' : 'row', flex: 1 },
+            ]}
+          >
+            <Sparkles size={18} color={palette.water} />
+            <Text style={[styles.cardHeading, { color: palette.text }]}>
+              {t('aiSettingsTitle')}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.statusBadge,
+              {
+                backgroundColor: hasGeminiKey
+                  ? palette.nutritionSoft
+                  : palette.cardElevated,
+                borderColor: hasGeminiKey ? palette.nutrition : palette.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusBadgeText,
+                { color: hasGeminiKey ? palette.nutrition : palette.textMuted },
+              ]}
+            >
+              {hasGeminiKey ? t('aiKeySavedBadge') : t('aiKeyNotSavedBadge')}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.settingBlock}>
           <Text
             style={[
-              styles.teaserTitle,
+              styles.settingLabel,
               { color: palette.text, textAlign: isRTL ? 'right' : 'left' },
             ]}
           >
-            {t('aiSettingsTeaserTitle')}
+            {t('aiApiKeyLabel')}
           </Text>
+
+          <View
+            style={[
+              styles.inputRow,
+              { flexDirection: isRTL ? 'row-reverse' : 'row' },
+            ]}
+          >
+            <TextInput
+              value={apiKeyInput}
+              onChangeText={setApiKeyInput}
+              placeholder={
+                hasGeminiKey ? '••••••••••••••••••••' : t('aiApiKeyPlaceholder')
+              }
+              placeholderTextColor={palette.textSubtle}
+              secureTextEntry={!showApiKey}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[
+                styles.textInput,
+                {
+                  flex: 1,
+                  backgroundColor: palette.inputBg,
+                  borderColor: palette.border,
+                  color: palette.text,
+                  textAlign: isRTL ? 'right' : 'left',
+                },
+              ]}
+            />
+            <Pressable
+              onPress={() => setShowApiKey((prev) => !prev)}
+              style={[
+                styles.toggleShowBtn,
+                {
+                  backgroundColor: palette.inputBg,
+                  borderColor: palette.border,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={showApiKey ? t('aiHideKey') : t('aiShowKey')}
+            >
+              {showApiKey ? (
+                <EyeOff size={18} color={palette.textMuted} />
+              ) : (
+                <Eye size={18} color={palette.textMuted} />
+              )}
+            </Pressable>
+          </View>
         </View>
+
+        <View style={styles.settingBlock}>
+          <Text
+            style={[
+              styles.settingLabel,
+              { color: palette.text, textAlign: isRTL ? 'right' : 'left' },
+            ]}
+          >
+            {t('aiModelLabel')}
+          </Text>
+          <TextInput
+            value={modelInput}
+            onChangeText={setModelInput}
+            onBlur={() => {
+              void setGeminiModel(modelInput);
+            }}
+            placeholder={t('aiModelPlaceholder')}
+            placeholderTextColor={palette.textSubtle}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: palette.inputBg,
+                borderColor: palette.border,
+                color: palette.text,
+                textAlign: isRTL ? 'right' : 'left',
+              },
+            ]}
+          />
+        </View>
+
+        <View
+          style={[
+            styles.aiBtnRow,
+            { flexDirection: isRTL ? 'row-reverse' : 'row' },
+          ]}
+        >
+          <Button
+            label={t('aiSaveBtn')}
+            variant="workout"
+            onPress={() => {
+              void handleSaveAiSettings();
+            }}
+            disabled={isSavingAi}
+            style={styles.aiSaveBtn}
+          />
+          {hasGeminiKey && (
+            <Pressable
+              onPress={() => {
+                void handleDeleteKey();
+              }}
+              disabled={isSavingAi}
+              style={({ pressed }) => [
+                styles.deleteKeyBtn,
+                {
+                  backgroundColor: palette.dangerSoft,
+                  borderColor: palette.danger,
+                  opacity: isSavingAi ? 0.5 : pressed ? 0.8 : 1,
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={t('aiDeleteBtn')}
+            >
+              <Trash2 size={16} color={palette.danger} />
+              <Text style={[styles.deleteKeyText, { color: palette.danger }]}>
+                {t('aiDeleteBtn')}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
+        {aiFeedback && (
+          <Text
+            style={[
+              styles.aiFeedbackText,
+              {
+                color: palette.nutrition,
+                textAlign: isRTL ? 'right' : 'left',
+              },
+            ]}
+          >
+            {aiFeedback}
+          </Text>
+        )}
+
         <Text
           style={[
             styles.teaserDesc,
             { color: palette.textMuted, textAlign: isRTL ? 'right' : 'left' },
           ]}
         >
-          {t('aiSettingsTeaserDesc')}
+          {t('aiPrivacyNote')}
+        </Text>
+
+        <Text
+          style={[
+            styles.aiHintLink,
+            { color: palette.water, textAlign: isRTL ? 'right' : 'left' },
+          ]}
+        >
+          {t('aiGetKeyHint')}
         </Text>
       </Card>
 
@@ -441,20 +667,74 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 14,
   },
-  teaserHeader: {
+  aiHeaderRow: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  statusBadgeText: {
+    fontFamily: FONTS.bold,
+    fontSize: 11.5,
+  },
+  inputRow: {
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
   },
-  teaserTitle: {
+  textInput: {
+    minHeight: 48,
+    borderRadius: RADIUS.input,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+  },
+  toggleShowBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.input,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiBtnRow: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  aiSaveBtn: {
     flex: 1,
+    minHeight: 48,
+  },
+  deleteKeyBtn: {
+    minHeight: 48,
+    paddingHorizontal: 14,
+    borderRadius: RADIUS.button,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  deleteKeyText: {
     fontFamily: FONTS.bold,
-    fontSize: 14.5,
+    fontSize: 13.5,
+  },
+  aiFeedbackText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
   },
   teaserDesc: {
     fontFamily: FONTS.regular,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12.5,
+    lineHeight: 19,
+  },
+  aiHintLink: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 12.5,
   },
   disclaimer: {
     fontFamily: FONTS.regular,

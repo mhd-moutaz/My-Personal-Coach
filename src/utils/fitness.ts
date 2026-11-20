@@ -242,7 +242,7 @@ export function calculateMacros(
 }
 
 // Evenly spaced active days (0 = Sunday .. 6 = Saturday)
-const ACTIVE_DAY_SLOTS: Record<number, number[]> = {
+export const ACTIVE_DAY_SLOTS: Record<number, number[]> = {
   1: [1],
   2: [1, 4],
   3: [1, 3, 5],
@@ -288,7 +288,7 @@ function getSplitTitle(split: SplitType): { ar: string; en: string } {
   }
 }
 
-function getAllowedLevels(level: ExperienceLevel): ExperienceLevel[] {
+export function getAllowedLevels(level: ExperienceLevel): ExperienceLevel[] {
   if (level === 'beginner') return ['beginner'];
   if (level === 'intermediate') return ['beginner', 'intermediate'];
   return ['beginner', 'intermediate', 'advanced'];

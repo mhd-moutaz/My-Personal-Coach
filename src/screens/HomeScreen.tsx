@@ -49,13 +49,18 @@ function getSlotLabelKey(slot: MealSlot) {
   }
 }
 
-export function HomeScreen() {
+interface HomeScreenProps {
+  onOpenWorkouts?: () => void;
+}
+
+export function HomeScreen({ onOpenWorkouts }: HomeScreenProps) {
   const {
     palette,
     isRTL,
     settings,
     profile,
     plan,
+    activeSchedule,
     dailyLog,
     t,
     toggleTheme,
@@ -95,13 +100,13 @@ export function HomeScreen() {
   }, [plan, dailyLog.completedMealIds]);
 
   const todaysWorkout = useMemo(() => {
-    if (!plan) return null;
+    if (activeSchedule.length === 0) return null;
     const todayIndex = new Date().getDay();
     return (
-      plan.weeklySchedule.find((d) => d.dayIndex === todayIndex) ??
-      plan.weeklySchedule[0]
+      activeSchedule.find((d) => d.dayIndex === todayIndex) ??
+      activeSchedule[0]
     );
-  }, [plan]);
+  }, [activeSchedule]);
 
   if (!plan || !profile) {
     return null;
@@ -439,6 +444,24 @@ export function HomeScreen() {
               />
             </View>
           )}
+
+          {onOpenWorkouts && (
+            <Pressable
+              onPress={onOpenWorkouts}
+              style={({ pressed }) => [
+                styles.viewDetailsBtn,
+                {
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.viewDetailsText, { color: palette.workout }]}>
+                {t('viewDetailsBtn')}
+              </Text>
+            </Pressable>
+          )}
         </Card>
       )}
 
@@ -744,5 +767,15 @@ const styles = StyleSheet.create({
   undoMealText: {
     fontFamily: FONTS.semiBold,
     fontSize: 12.5,
+  },
+  viewDetailsBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 10,
+    minHeight: 36,
+  },
+  viewDetailsText: {
+    fontFamily: FONTS.bold,
+    fontSize: 13.5,
   },
 });

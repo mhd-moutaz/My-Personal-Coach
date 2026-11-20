@@ -1,3 +1,4 @@
+import { EXERCISE_IMAGES } from '../src/data/exerciseImages';
 import { getExerciseById } from '../src/data/exercises';
 import {
   DietPreference,
@@ -8,6 +9,7 @@ import {
   TrainingPlace,
   UserProfile,
 } from '../src/types/coach';
+import { validateAiDays } from '../src/utils/aiProgram';
 import { generatePersonalPlan } from '../src/utils/fitness';
 
 const GENDERS: Gender[] = ['male', 'female'];
@@ -151,6 +153,133 @@ for (const gender of GENDERS) {
   }
 }
 
+// Phase 2A checks: empty EXERCISE_IMAGES registry + validateAiDays fixtures
+if (typeof EXERCISE_IMAGES !== 'object' || EXERCISE_IMAGES === null) {
+  failures.push('EXERCISE_IMAGES registry is not an object.');
+}
+
+const validSample = {
+  days: [
+    {
+      dayIndex: 0,
+      titleAr: 'دفع علوي',
+      titleEn: 'Upper Push',
+      exercises: [
+        { exerciseId: 'gym_chest_db_bench', sets: 3, reps: '8-10', restSeconds: 90 },
+        { exerciseId: 'gym_sh_db_press', sets: 3, reps: '8-12', restSeconds: 75 },
+        { exerciseId: 'gym_arms_cable_pushdown', sets: 3, reps: '12', restSeconds: 60 },
+        { exerciseId: 'gym_core_plank', sets: 3, reps: '45', restSeconds: 45 },
+      ],
+    },
+    {
+      dayIndex: 3,
+      titleAr: 'سحب وأرجل',
+      titleEn: 'Pull & Legs',
+      exercises: [
+        { exerciseId: 'gym_back_lat_pulldown', sets: 3, reps: '10', restSeconds: 75 },
+        { exerciseId: 'gym_legs_goblet_squat', sets: 3, reps: '10-12', restSeconds: 90 },
+        { exerciseId: 'gym_legs_leg_curl', sets: 3, reps: '12', restSeconds: 60 },
+        { exerciseId: 'gym_arms_db_curl', sets: 3, reps: '12', restSeconds: 60 },
+      ],
+    },
+  ],
+};
+
+const validRes = validateAiDays(validSample, {
+  activeDays: [0, 3],
+  place: 'gym',
+  level: 'beginner',
+});
+if (!validRes.ok || validRes.days.length !== 7 || validRes.days[1].isRestDay !== true) {
+  failures.push('validateAiDays: valid sample failed validation.');
+}
+
+const unknownExRes = validateAiDays(
+  {
+    days: [
+      {
+        ...validSample.days[0],
+        exercises: [
+          ...validSample.days[0].exercises.slice(0, 3),
+          { exerciseId: 'does_not_exist', sets: 3, reps: '10', restSeconds: 60 },
+        ],
+      },
+      validSample.days[1],
+    ],
+  },
+  { activeDays: [0, 3], place: 'gym', level: 'beginner' }
+);
+if (unknownExRes.ok) {
+  failures.push('validateAiDays: expected unknown exerciseId to fail.');
+}
+
+const wrongDaysRes = validateAiDays(
+  { days: [validSample.days[0]] },
+  { activeDays: [0, 3], place: 'gym', level: 'beginner' }
+);
+if (wrongDaysRes.ok) {
+  failures.push('validateAiDays: expected wrong activeDays count to fail.');
+}
+
+const duplicateExRes = validateAiDays(
+  {
+    days: [
+      {
+        ...validSample.days[0],
+        exercises: [
+          validSample.days[0].exercises[0],
+          validSample.days[0].exercises[0],
+          validSample.days[0].exercises[1],
+          validSample.days[0].exercises[2],
+        ],
+      },
+      validSample.days[1],
+    ],
+  },
+  { activeDays: [0, 3], place: 'gym', level: 'beginner' }
+);
+if (duplicateExRes.ok) {
+  failures.push('validateAiDays: expected duplicate exerciseId to fail.');
+}
+
+const badRepsRes = validateAiDays(
+  {
+    days: [
+      {
+        ...validSample.days[0],
+        exercises: [
+          ...validSample.days[0].exercises.slice(0, 3),
+          { exerciseId: 'gym_core_plank', sets: 3, reps: 'abc', restSeconds: 60 },
+        ],
+      },
+      validSample.days[1],
+    ],
+  },
+  { activeDays: [0, 3], place: 'gym', level: 'beginner' }
+);
+if (badRepsRes.ok) {
+  failures.push('validateAiDays: expected reps "abc" to fail.');
+}
+
+const wrongPlaceRes = validateAiDays(
+  {
+    days: [
+      {
+        ...validSample.days[0],
+        exercises: [
+          ...validSample.days[0].exercises.slice(0, 3),
+          { exerciseId: 'home_chest_pushup', sets: 3, reps: '10', restSeconds: 60 },
+        ],
+      },
+      validSample.days[1],
+    ],
+  },
+  { activeDays: [0, 3], place: 'gym', level: 'beginner' }
+);
+if (wrongPlaceRes.ok) {
+  failures.push('validateAiDays: expected home exercise in gym plan to fail.');
+}
+
 if (failures.length > 0) {
   console.error(
     `Plan sanity check FAILED (${failures.length} failure(s) across ${totalPlans} plans):`
@@ -162,5 +291,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Plan sanity check PASSED: ${totalPlans} plans and ${totalWorkoutDays} workout days verified with 0 failures.`
+  `Plan sanity check PASSED: ${totalPlans} plans, ${totalWorkoutDays} workout days, and 6 validateAiDays fixtures verified with 0 failures.`
 );

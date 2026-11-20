@@ -157,11 +157,34 @@ export interface DailyLog {
   workoutCompleted: boolean;
 }
 
+export interface AiWorkoutProgram {
+  version: 1;
+  source: 'ai';
+  createdAt: string;
+  model: string;
+  userNotes: string;
+  safetyNote?: string;
+  days: WorkoutDayPlan[]; // always 7 entries, dayIndex 0..6, rest days included
+}
+
+export type AiGenerateFailureReason =
+  | 'no_key'
+  | 'auth'
+  | 'model_not_found'
+  | 'quota'
+  | 'network'
+  | 'invalid_response';
+
+export type AiGenerateResult =
+  | { ok: true }
+  | { ok: false; reason: AiGenerateFailureReason };
+
 export interface AppSettings {
   language: Language;
   theme: ThemeMode;
   unit: WeightUnit;
   onboardingCompleted: boolean;
+  geminiModel: string;
 }
 
 export type TabKey = 'home' | 'workouts' | 'nutrition' | 'progress' | 'profile';
